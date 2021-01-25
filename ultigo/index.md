@@ -37,31 +37,7 @@ byte와 rune은 각각 uint8과 int32의 별칭입니다.
 
 ### 문자열
 
-그럼 왜 rune은 uint32가 아니라 int32로 구성되어 있는 지 궁금할 수 있습니다.  
-"어차피 유니코드는 음수 지정 값이 존재할리 없는데 uint32로 하는 게 낫지 않나?" 라고 생각할 수 있다고 생각합니다, 제가 그랬거든요.
-
-유니코드가 해봐야 917,631까지고 2의 20승인 1,048,576보다 작다는 걸 보기 전까지는 말이죠.
-
-그래도 코드 곳곳에서 혹시 모를 가능성을 숨겨두고 있습니다.
-
-```go
-// IsGraphic은 rune이 화면에 출력될 수 있는 지 확인하는 함수입니다.  
-// 문자, 기호, 숫자, 구두점, 부호, 공백 등을 포함하는 문자들입니다.  
-func IsGraphic(r rune) bool {
-	// We convert to uint32 to avoid the extra test for negative,
-	// and in the index we convert to uint8 to avoid the range check.
-    if uint32(r) <= MaxLatin1 {
-    	return properties[uint8(r)]&pg != 0
-    }
-    	return In(r, GraphicRanges...)
-}
-```
-
-unicode의 isGraphic 함수입니다.  
-이 함수에서는 rune을 받고 uint32로 변환 후 비교를 하고 있습니다.  
-하지만 MaxLatin1은 `const MaxLatin1 = '\u00FF'`으로 rune 타입이고 그 중에도 작은 편입니다.
-
-그리고 string 타입은 byte 배열로 나타내는 걸 string.go 파일을 통해 알 수 있습니다.
+string 타입을 byte 배열로 나타내는 걸 string.go 파일을 통해 알 수 있습니다.
 
 ```go
 type stringStruct struct {
@@ -239,6 +215,33 @@ type SwitchB struct {
 
 8개의 bool(1)과 1개의 string(16)을 가지는 해당 Switch는 SwitchA처럼 바보같이 선언하지만 않는다면 SwitchB처럼 가장 큰 string을 한쪽 구석에 잘 두면 전체 24 byte로 SwitchA의 전체 크기인 32 byte보다 훨씬 적은 메모리를 차지합니다.
 
+그럼 반대로 구조체가 아무 타입도 가지지 않는 다면 크기는 어떨까요?  
+
+```go
+type Void struct{}
+
+func main() {
+	a := Void{}
+	println(unsafe.Sizeof(a))
+}
+```
+
+```bash
+0
+```
+
+해당 구조체, Void의 크기는 0 byte 입니다.  
+실제로도 이 타입은 메모리에 0을 할당하는 것과 매우 근사한 효과를 볼 수 있습니다.  
+이를 활용하여 간단하게 map을 set으로 사용할 수도 있습니다.
+
+```go
+type intMap map[int]struct{}
+```
+
+이러한 형태로 쓰면 bool 쓰는 것보다 메모리도 적게 쓰고 성능도 좋게 set을 구현할 수 있습니다.
+
+---
+
 ## 이름 있는 타입과 익명 타입
 
 이름 있는 타입은 위의 `Person`과 마찬가지로 특정한 이름을 가진 타입입니다.  
@@ -335,7 +338,7 @@ a := 99
 
 간단한 예로 이 코드를 실행하게 되면 1000을 포인터 값으로 바꿀 수 없다는 에러를 띄우며 컴파일 되지 않을 것입니다.
 
-얼티밋 고에서는 스택과 힙을 포함해서 꽤 길게 써 주었지만 제가 생각하는 핵심은 다른 변수가 가지는 값의 symbolic link 입니다.
+얼티밋 고에서는 스택과 힙을 포함해서 꽤 길게 써 주었지만 제가 생각하는 핵심은 다른 변수가 가지는 값의 symbolic link입니다.
 
 ---
 
@@ -358,8 +361,30 @@ func main() {
 해당 코드의 경우 main 스코프의 a를 inc 함수 스코프에서 접근하여 1을 더해줍니다.  
 main에서는 1이 증가한 a를 출력하여 출력 값은 `100`이 됩니다.
 
-하지만 go에서는 이러한 사용 방식이 권장되지 않습니다.  
-바로 escape analysis 때문입니다.
+조금 다른 사용처로 함수형 프로그래밍에서 자주 쓰이는 Optional을 흉내낼 수 있습니다.  
+별 다른 노력을 들이지 않고도 값이 존재하지 않는 `nil`을 표현할 수 있기때문입니다.
+
+```go
+func find(str string, t rune) *int {
+	for i, v := range str {
+		if v == t {
+			r := i
+			return &r
+		}
+	}
+	return nil
+}
+
+func main() {
+	a := "hello, world!"
+	println(*find(a, 'o'))
+}
+```
+
+해당 코드는 특정 문자열에 어떤 문자가 가장 처음 나오는 인덱스를 반환합니다.  
+일반적인 경우와 다르게 인덱스를 int 타입 포인터로 반환하고 없을 경우 nil을 반환합니다.  
+하지만 보통은 이런 형식의 사용을 권장하지는 않습니다.  
+바로 댕글링 포인터와 이스케이프 분석때문입니다.
 
 ---
 
@@ -431,14 +456,14 @@ func main() {
 soulkey
 ```
 
-이 코드는 Person 인스턴스가 heap 으로 탈주했다고 보고해줍니다.  
+이 코드는 Person 인스턴스가 heap으로 탈주했다고 보고해줍니다.  
 왜냐하면 이 생성자는 댕글링 포인터를 만드는 생성자이기때문입니다.
 
 댕글링 포인터는 가리키고 있는 변수가 존재하지 않게 되는 포인터를 의미합니다.
-바로 위 코드가 가장 대표적인 예로 C 나 C++, rust 였다면 포인터를 반환하자마자 포인터가 가리키고 있어야 할 Person 인스턴스가 메모리에서 사라지게 됩니다.  
+바로 위 코드가 가장 대표적인 예로 포인터를 반환하자마자 포인터가 가리키고 있어야 할 Person 인스턴스가 스택에 할당되어 있었다면 즉시 메모리에서 사라지게 됩니다.  
 그리고 포인터를 * 연산자를 통해 접근하게 되면 의도하지 않은 곳에 접근하게 되어 상황에 따라 심각한 버그가 발생할 수도 있습니다.
 
-이 현상을 golang 컴파일러는 미연에 방지하기 위해 댕글링 포인터가 발생할 것같은 부분은 해당 변수를 처음부터 heap 에 할당하고 포인터는 heap 의 위치를 가리키게 합니다.  
+이 현상을 golang 컴파일러는 미연에 방지하기 위해 댕글링 포인터가 발생하는 부분은 해당 변수를 처음부터 heap 에 할당하고 포인터는 heap의 위치를 가리키게 합니다.  
 이러한 일련의 과정을 escape analysis 라고 합니다.
 
 ---
@@ -446,5 +471,263 @@ soulkey
 ### 가비지 컬렉션
 
 위 과정을 거쳐 heap 에 할당된 데이터들은 가비지 컬렉션(Garbage Collection, GC)의 영향 하에 놓이게 됩니다.  
-특정 조건을 만족하여 GC가 작동하기 시작하면 모든 고루틴은 일시정지되고 heap 을 정리하기 시작합니다.
+특정 조건을 만족하여 GC가 작동하기 시작하면 모든 고루틴은 일시정지되고 heap 에서 사용이 끝난 데이터들을 지우기 시작합니다.
 
+이 GC는 mgc.go에 따르면 크게 4가지 과정이 있습니다.  
+* Sweep Termination
+  + 런타임을 정지합니다.
+  + 제거되지 않은 스윕 영역을 제거합니다. GC 사이클이 돌기 전에 강제로 GC가 발생할 경우 존재합니다. ( runtime.GC() )
+* mark phase
+  + write barrier와 mutator assists를 활성화하고 고루틴들의 맨 앞에 삽입합니다. 모든 프로세스에 write barrier가 활성화되기 전까지는 어떤 오브젝트도 스캔되지 않습니다.
+  + 다시 런타임을 재생합니다. 이때, GC 작업도 시작됩니다. write barrier는 포인터를 만들거나 수정하는 걸 막아줍니다. 최근에 할당된 포인터들은 검정으로 마크됩니다.
+  + 모든 전역 변수와 off-heap 포인터를 제외한 모든 스택의 포인터를 스캔합니다.
+  + 회색 오브젝트를 찾아서 검정으로 바꾸며 연결된 모든 포인터를 숨깁니다.
+  + 더 이상 찾을 게 없다면 다음으로 넘어갑니다.
+* mark termination
+  + 다시 런타임을 멈춥니다.
+  + workers와 assists를 비활성화합니다.
+  + mcache를 central cache로 미는 등 런타임을 정리합니다.
+* sweep phase
+  + write barrier를 비활성화합니다.
+  + 최근에 추가된 친구들은 하양으로 바꿉니다. 필요하면 스윕 영역을 만듭니다.
+  + 백그라운드에서 동시적으로 오브젝트를 정리하며 할당에 대해 응답합니다.
+* 다시 충분한 양의 공간을 할당했다면 과정을 반복합니다.
+
+보통 여기서 충분한 양의 공간 할당은 직전 GC 수행 시 남은 heap 용량의 2배가 됩니다.  
+이 수치는 컴파일 시에 `GOGC=100 go build`와 같은 형태로 설정할 수 있습니다.  
+GOGC의 값은 현재 heap 용량의 몇 퍼센트가 추가되었는 지를 명시합니다.  
+GOGC가 100이라는 것은 현재 heap 의 100%가 추가 되었을 때 GC를 수행하므로 2배를 의미합니다.  
+보통은 이 값이 기본값입니다.
+
+`GOGC=0 go build`처럼 GOGC를 0으로 설정하면 golang의 런타임은 자동으로 GC를 수행하지 않습니다.  
+대신 `runtime.GC()` 함수를 사용하여 명시적으로 GC를 수행할 수 있습니다.  
+이는 때때로 간단한 유틸리티나 영속적(persistant)인 데이터가 메모리에 꾸준히 작성될 때 필요없는 GC를 수행할 필요가 없어서 더 유리할 수 있습니다.
+
+이와는 별개로 GC의 최적화 덕분에 인터페이스와 타입 단언이나 `reflect`패키지의 성능이 비약적으로 상승하여 마치 weak type 언어처럼 작성하더라도 좋은 성능을 보여주게 되었습니다.
+
+---
+
+## 함수
+
+golang의 함수는 기본적으로 다음과같은 형태를 가집니다.
+
+```go
+func addOne(x int) int {
+	return x + 1
+}
+```
+
+addOne 함수는 int 타입 x를 받아서 1을 더한 후 반환합니다.  
+func 예약어로 시작하고 함수 이름과 매개변수, 반환타입을 갖는 일반적인 형태입니다.
+
+golang의 함수는 golang답지 않게 몇 가지 단맛이 느껴지는 부분이 있습니다.  
+그 중 첫번째는 다른 언어에서도 쉽게 찾아볼 수 있는 가변 매개변수입니다.
+
+```go
+func addAll(i ...int) int {
+	r := 0
+	for _, v := range i {
+		r += v
+	}
+	return r
+}
+```
+
+addAll 함수는 매개변수로 들어온 int 타입 변수들을 모두 더해서 반환합니다.  
+이때 `...int`로 표현한 i 변수는 슬라이스로 코드에 적용되고 `for range` 문법을 통해 손 쉽게 순회할 수 있습니다.  
+
+두번째는 반환값입니다.
+
+```go
+func addAll(i ...int) (r int) {
+	for _, v := range i {
+		r += v
+	}
+	return r
+}
+
+func getMaxMin(i ...int) (int, int) {
+	min := math.MaxInt64
+	max := math.MinInt64
+	for _, v := range i {
+		if min > v {
+			min = v
+		}
+		if max < v {
+			max = v
+		}
+	}
+	return max, min
+}
+```
+
+addAll 함수는 방금 전과 달리 함수 선언부에 반환값인 r을 선언한 모양입니다.  
+getMaxMin 함수는 2개의 반환 타입을 선언부에 작성하여 한번에 여러개의 반환값을 가질 수 있음을 보여줍니다.  
+이러한 형태는 golang 표준 패키지들에서 쉽게 찾아볼 수 있으며 후자의 경우는 `error`를 반환하는 데 주로 쓰입니다.
+
+세번째로는 클로저(closure)입니다.  
+golang도 일급 함수를 지원하기에 당연하게 클로저를 지원합니다.
+
+```go
+func getFibGen() func() uint64 {
+	f, s := uint64(0), uint64(0)
+	return func() uint64 {
+		f, s = s, f+s
+		return uint64(f)
+	}
+}
+
+func main() {
+	a := getFibGen()
+	for i := 0; i < 10; i++ {
+		fmt.Println(a())
+	}
+}
+```
+
+```bash
+☁  md  go run main.go
+1
+1
+2
+3
+5
+8
+13
+21
+34
+55
+```
+
+getFinGen 함수는 내부에 f와 s 변수를 가지고 익명 함수를 반환합니다.  
+반환된 함수는 실행될 때마다 상위 스택에서 f와 s를 읽어서 다음 피보나치 수열 값을 출력합니다.
+
+마지막으로 `defer`가 있습니다만 `derfer`는 후에 비동기나 예외 처리같은 부분에서 나올 거라 작성하지 않겠습니다.
+
+---
+
+## 상수
+
+상수는 컴파일 타임에 해당 위치에 대치되는 일종의 표현식입니다.  
+상수는 간단하게 `const` 예약어를 통해 선언할 수 있습니다.
+
+```go
+const a = 100
+
+func main() {
+	var i18 int8 = a
+	var i16 int16 = a
+	var i32 int32 = a
+	var i64 int64 = a
+}
+```
+
+해당 상수, a는 100으로 초기화되었지만 실제 가지는 타입은 untyped int입니다.  
+이는 int 타입이라고 고려는 하는데 실제로 타입으로는 정해져있지는 않다는 것을 의미합니다.  
+실제로 아래 `main` 함수에서 크기가 다른 각 int 타입에 대입해도 에러가 나지 않습니다.  
+만약 int 타입으로 고정이 되었다면 타입 변환을 통해 각 변수에 대입해야 할 것입니다.
+
+```go
+const a int = 100
+
+func main() {
+	var i18 int8 = int8(a)
+	var i16 int16 = int16(a)
+	var i32 int32 = int32(a)
+	var i64 int64 = int64(a)
+}
+```
+
+하지만 이 코드처럼 상수에 타입을 지정해주게 된다면 `main` 함수에서 작성한 대로 타입 변환을 해주지 않으면 에러가 날 것입니다.
+
+만약 서로 다른 타입으로 예측될 수 있는 상수를 선언한다면 유형 승급(kind promotion)에 의해 더 높은 유형으로 통일될 것입니다.
+
+```go
+const f = 3 * 3.141592
+```
+
+```go
+const f untyped float = 9.42478
+```
+
+상수 f의 경우 int 형 상수와 float 형 상수의 곱으로 이루어져 있기에 자연스럽게 int가 float으로 승급되어 f는 float 형 상수가 됩니다.  
+이것은 다른 golang 원시 타입의 연산에서도 동일하게 적용되는 법칙입니다.
+
+서로다른 타입의 상수를 연산하게 될 경우에도 일반적인 연산과 동일하게 서로 타입을 맞춰줘야 합니다.  
+하지만 타입이 정해져 있지 않은 상수일 경우 자동으로 해당 타입으로 맞춰집니다.
+
+```go
+const i32 int32 = 100
+const i64 int64 = 200
+const result = int64(i32) + i64
+```
+
+```go
+const ut = 100
+const i64 int64 = 200
+const result = ut + i64
+```
+
+마지막으로 타입이 정해지지 않은 상수는 256 bit의 크기를 가지므로 일반적인 타입보다 훨씬 큰 값으로 선언할 수 있습니다.
+
+```go
+const i = 115792089237316195423570985008687907853269984665640564039457584007913129639936
+```
+
+i는 2^256으로 선언하였지만 에러가 나지 않는 것을 확인할 수 있습니다.
+
+---
+
+### iota
+
+iota는 같은 const 블록 안에서 선언된 부분부터 1씩 증가하며 대입하는 일종의 설탕입니다.  
+반복문처럼 아래로 내려갈 수록 1씩 증가하는 특성때문에 여러 방법으로 쓰이고 있습니다.
+
+```go
+const (
+	First = iota
+	Second
+	Third
+)
+```
+
+이 경우에는 단순히 타입이 정해지지 않은 int 타입 상수로 각각 0, 1, 2로 선언됩니다.
+
+```go
+const (
+	Greater = uint8(iota)
+	Less
+	Equal
+)
+```
+
+이 경우에는 uint8 타입 상수로 각각 0, 1, 2로 선언됩니다.
+
+```go
+const (
+	s1 = 1 << iota
+	s2
+	s3
+	s4
+	s5
+	s6
+	s7
+	s8
+)
+```
+
+이 경우에는 각각 1의 left shift가 0~7까지 수행되어 1, 2, 4, 8, 16, 32, 64, 128로 선언됩니다.
+
+---
+
+### 번역
+
+상수 부분 제일 앞 문장에 보면 영어 원문과 재방문 표시가 되어 있습니다.
+
+Constants are not variables. Constants have a parallel type system all to themselves. The minimum precision for constant is 256 bit. They are considered to be mathematically exact. Constants only exist at compile time.
+
+단순 직역해서  
+상수는 변수가 아니다. 모든 상수는 평행 타입 시스템을 가지고 있으며 정밀도는 256 비트이다. 256 비트는 수학적으로 정확하며 상수는 컴파일 타임에만 존재한다.  
+로 할 수 있겠지만 평행 타입 시스템이 어떤 건지 느낌은 있습니다만 말로 표현하기가 어렵습니다.
+
+괜찮은 표현이 있다면 추천해주셨으면 합니다.
