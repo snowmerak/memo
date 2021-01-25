@@ -23,7 +23,7 @@
 |uintptr|32 or 64|0|
 |byte|8|0|
 |rune|32|0|
-|string|8~|""|
+|string|16 + a|""|
 
 int, uint, float, complex는 각각 정수, 부호없는 정수, 실수, 복소수를 의미하고 8, 16, 32, 64는 각 비트 수를 의미합니다.
 
@@ -31,7 +31,7 @@ int, uint, float, complex는 각각 정수, 부호없는 정수, 실수, 복소�
 신기하게도 float은 이런 타입이 없고 그 덕에 complex도 이런게 없습니다.
 
 byte와 rune은 각각 uint8과 int32의 별칭입니다.  
-아시다시피 byte는 ASCII에 대응하기 위해 존재하며 rune은 Unicode에 대응하기 위해 존재합니다.  
+아시다시피 byte는 ASCII에 대응하기 위해 존재하며 rune은 unicode에 대응하기 위해 존재합니다.  
 
 ---
 
@@ -215,7 +215,7 @@ type SwitchB struct {
 
 8개의 bool(1)과 1개의 string(16)을 가지는 해당 Switch는 SwitchA처럼 바보같이 선언하지만 않는다면 SwitchB처럼 가장 큰 string을 한쪽 구석에 잘 두면 전체 24 byte로 SwitchA의 전체 크기인 32 byte보다 훨씬 적은 메모리를 차지합니다.
 
-그럼 반대로 구조체가 아무 타입도 가지지 않는 다면 크기는 어떨까요?  
+반대로 구조체가 아무 타입도 가지지 않는 다면 크기는 어떨까요?
 
 ```go
 type Void struct{}
@@ -231,11 +231,11 @@ func main() {
 ```
 
 해당 구조체, Void의 크기는 0 byte 입니다.  
-실제로도 이 타입은 메모리에 0을 할당하는 것과 매우 근사한 효과를 볼 수 있습니다.  
+실제로도 이 타입은 메모리에 0을 할당하는 것과 매우 유사한 효과를 볼 수 있습니다.  
 이를 활용하여 간단하게 map을 set으로 사용할 수도 있습니다.
 
 ```go
-type intMap map[int]struct{}
+type intSet map[int]struct{}
 ```
 
 이러한 형태로 쓰면 bool 쓰는 것보다 메모리도 적게 쓰고 성능도 좋게 set을 구현할 수 있습니다.
@@ -244,7 +244,7 @@ type intMap map[int]struct{}
 
 ## 이름 있는 타입과 익명 타입
 
-이름 있는 타입은 위의 `Person`과 마찬가지로 특정한 이름을 가진 타입입니다.  
+이름 있는 타입은 위의 Person과 마찬가지로 특정한 이름을 가진 타입입니다.  
 이 범주에는 기존 원시 타입들도 모두 아우룰 수 있습니다.
 
 이름 있는 타입 끼리는 암시적으로 대입할 수 없고 명시적인 변환 과정이 필요합니다.  
