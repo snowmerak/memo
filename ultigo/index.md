@@ -286,7 +286,7 @@ func main() {
 	}{
 		"bell", 29, false, 169.7,
 	}
-	k := Korean(a)
+	k := Korean(bell)
 	fmt.Println(k)
 }
 ```
