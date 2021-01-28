@@ -726,5 +726,5 @@ Constants are not variables. Constants have a parallel type system all to themse
 
 ### special thanks
 
-이름 있는 타입과 익명타입의 오타를 고쳐주신 이현우님께 감사드립니다. 
+이름 있는 타입과 익명타입의 오타를 고쳐주신 이현우(aeharvlee)님께 감사드립니다. 
  
