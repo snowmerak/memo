@@ -721,3 +721,10 @@ Constants are not variables. Constants have a parallel type system all to themse
 로 할 수 있겠지만 평행 타입 시스템이 어떤 건지 느낌은 있습니다만 말로 표현하기가 어렵습니다.
 
 괜찮은 표현이 있다면 추천해주셨으면 합니다.
+
+---
+
+### 오타
+
+이름 있는 타입과 익명타입의 오타를 고쳐주신 이현우님께 감사드립니다. 
+ 
