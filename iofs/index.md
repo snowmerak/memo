@@ -210,8 +210,80 @@ os.WriteFile("./.tmp", data)
 
 ---
 
-## 끝
+## embed
 
-`fs` 패키지가 `ioutil` 패키지를 대체하는 용도로 추가되었다고 생각했는데 알아보니 `os` 패키지에 들어갔습니다.  
-그리고 `fs` 패키지는 특정 경로에 대한 작업을 용이하게 하기 위해 만들어졌다고 느꼈습니다.  
-간단히 생각해도 모든 폴더를 순회하는 코드를 손으로 짜게 된다면 `fs` 패키지의 `Sub()` 함수가 큰 도움이 될 것같습니다.
+`embed` 패키지는 외부 파일을 golang 코드에 내장시킬 수 있는 지시자(directive)를 제공합니다.  
+이 패키지를 사용하려면 `//go:embed`를 필요한 변수 위에 작성하시면 됩니다.
+
+만약 golang 프로젝트 루트 폴더에 helloworld.txt라는 파일에 `hello, world!`라는 텍스트가 작성되어 있다면 아래 코드는 `hello, world!`를 출력합니다.
+
+```go
+import (
+	_ "embed"
+	"fmt"
+)
+
+func main() {
+	//go:embed helloworld.txt
+	var s string
+	fmt.Println(s)
+}
+```
+
+`embed`를 사용하기 위해서는 먼저 `embed` 패키지를 import 해야합니다.  
+지금은 패키지 내부 변수나 함수를 사용하지 않기에 _(underscore)를 별칭으로 패키지를 가져와야합니다.  
+`s` 변수에는 자동으로 helloworld.txt를 읽어서 나온 `hello, world!`가 저장되게 됩니다.  
+
+```go
+import (
+	"embed"
+	"fmt"
+)
+
+func main() {
+	//go:embed helloworld.txt
+	var s embed.FS
+    fmt.Println(s.ReadFile("helloworld.txt"))
+    // fmt.Println(fs.ReadFile(s, "helloworld.txt"))
+}
+```
+
+또한 이런 식으로 `embed.FS`로 받아서 `ReadFile()` 메서드를 호출하여 불러올 수도 있습니다.  
+이는 `fs.FS` 인터페이스도 만족시키기에 `fs.ReadFile(s, "helloworld.txt")`같이 `fs.ReadFile()` 함수를 통해서도 불러올 수 있습니다.  
+빌드하여 완전히 다른 경로로 옮겨서 테스트 해봤는데 완전히 embed되어 파일이 없어도 자연스럽게 실행되었습니다.
+
+아래 코드는 공식 문서의 코드입니다. 적절한 자료가 없어서 테스트하지 못 했습니다.
+
+```go
+package server
+
+import "embed"
+
+//go:embed image/* template/*
+//go:embed html/index.html
+var content embed.FS
+```
+
+이런 식으로 작성하게 되면 image 폴더와 template 폴더의 하위 데이터 전부와 html/index.html을 `content`가 내장한다고 합니다.
+
+```go
+//go:embed image template html/index.html
+var content embed.FS
+```
+
+또한 지시자를 짧게 이런식으로도 작성할 수 있습니다.  
+이렇게 받은 static file은 `http.FS()` 함수를 이용하여 핸들링할 수 있습니다.
+
+```go
+http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(content))))
+```
+
+`template.ParseFS()` 함수를 통해 템플릿도 파싱할 수 있습니다.
+
+```go
+template.ParseFS(content, "*.tmpl")
+```
+
+---
+
+## 끝
