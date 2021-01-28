@@ -264,7 +264,8 @@ import "embed"
 var content embed.FS
 ```
 
-이런 식으로 작성하게 되면 image 폴더와 template 폴더의 하위 데이터 전부와 html/index.html을 `content`가 내장한다고 합니다.
+이런 식으로 작성하게 되면 image 폴더와 template 폴더, html/index.html을 `content`에 저장합니다.  
+아마 `FS` 구조체에 속해 있는 `files *[]file`에 저장하여 해당 file 별로 그에 맞는 행동을 하는 것같습니다.
 
 ```go
 //go:embed image template html/index.html
