@@ -1,6 +1,6 @@
 # io/fs preview?
 
-## FS interface
+## FS
 
 `io/fs`에는 `FS`라는 인터페이스를 중심으로 움직입니다.
 
@@ -120,6 +120,25 @@ fs.ReadDir(os.DirFS("./"), ".")
 이렇게 작성하게 되면 현재 경로를 대상 디렉토리로 판단하여 읽습니다.  
 해당 함수는 `.`, `..`, `/`같은 표현을 쓸 수 있습니다.
 
+### DirEntry
+
+`ReadDir()` 함수는 `DirEntry` 인터페이스를 반환합니다.
+
+```go
+type DirEntry interface {
+    Name() string
+    IsDir() bool
+    Type() FileMode
+    Info() (FileInfo, error)
+}
+```
+
+`DirEntry` 인터페이스는 위 4가지 메서드를 가지고 있습니다.  
+`Name()` 메서드는 파일의 이름을 반환합니다.  
+`IsDir()` 함수는 파일이 디렉토리인지를 반환합니다.  
+`Type()` 함수는 파일의 모드(종류)와 권한 비트 등을 포함하는 `FileMode`를 반환합니다.  
+`Info()` 함수는 파일의 정보를 포함하는 `FileInfo` 인터페이스와 `error`를 반환합니다.
+
 ### ReadFile
 
 `ReadFile()` 함수는 매개변수로 받은 경로에서 해당 파일을 읽습니다.
@@ -133,8 +152,31 @@ fs.ReadFile(os.DirFS("./"), "a.txt")
 
 ### Stat
 
-`Stat()` 함수는 `ReadFile()` 함수와 동일하지만 반환값이 `FileInfo`로 파일 정보를 반환합니다.  
+`Stat()` 함수는 `ReadFile()` 함수와 동일하지만 반환값이 `FileInfo` 인터페이스로 파일 정보를 반환합니다.  
 예상하셨을 수도 있지만 `error` 값을 어느정도 공유하기때문에 `os.IsNotExist()` 함수를 이용하여 파일 존재 여부도 확인할 수 있습니다.
+
+### FileInfo
+
+`Stat()` 함수가 반환하는 `FileInfo` 인터페이스는 기존 `os.FileInfo`를 대체하는 파일 정보를 보여주는 인터페이스입니다.  
+실제로 `os.FileInfo`는 `fs.FileInfo`를 받아서 선언되어 있습니다.
+
+```go
+type FileInfo interface {
+    Name() string
+    Size() int64        // length in bytes for regular files; system-dependent for others
+    Mode() FileMode     // file mode bits
+    ModTime() time.Time // modification time
+    IsDir() bool        // abbreviation for Mode().IsDir()
+    Sys() interface{}   // underlying data source (can return nil)
+}
+```
+
+`Name()` 함수는 파일의 이름을 반환합니다.  
+`Size()` 함수는 byte 단위의 파일 크기를 반환합니다.  
+`Mode()` 함수는 `FileMode`를 반환합니다.  
+`ModTime()` 함수는 최종 수정된 시각을 반환합니다.  
+`IsDir()` 함수는 파일이 디렉토리인지를 반환합니다.  
+`Sys()` 함수는 해당 파일이 가지는 내부 포맷을 출력합니다.
 
 ### Sub
 
