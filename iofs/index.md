@@ -1,4 +1,4 @@
-# io/fs preview?
+# io/fs and embed in golang 1.16 beta
 
 ## FS
 
